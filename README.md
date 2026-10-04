@@ -185,16 +185,56 @@ export SAUCE_ACCESS_KEY="your-access-key"
 
 ## Running the tests
 
+### How many tests run
+
+**Every selected test runs once on every selected device.** Each run is its own Sauce
+Labs session, on its own phone.
+
+```
+test runs = test cases × devices
+```
+
+The suite has **7 test cases** (3 login, 2 cart, 2 checkout) and **3 devices**
+(`pixel`, `samsung`, `android-14`). Three options control a run:
+
+| Option | Controls | Default |
+|---|---|---|
+| file path / `-m` / `::test_name` | **which test cases** | all 7 |
+| `--devices` | **which devices** each test case runs on | all 3 |
+| `-n` | **how many run at the same time** (parallel sessions) | 1, one after another |
+
+`-n` doesn't change *what* runs, only how fast. 14 test runs with `-n 6` means 6 run at
+once, and the next one starts whenever one finishes.
+
+### Examples
+
+| Command | Test cases | Devices | Test runs | At once |
+|---|---|---|---|---|
+| `pytest -n 6` | all 7 | all 3 | **21** | 6 |
+| `pytest` | all 7 | all 3 | **21** | 1 |
+| `pytest -n 6 --devices pixel,samsung` | all 7 | pixel, samsung | **14** | 6 |
+| `pytest -n 3 --devices pixel` | all 7 | pixel | **7** | 3 |
+| `pytest -n 3 -m smoke` | 2 smoke tests | all 3 | **6** | 3 |
+| `pytest tests/test_checkout.py -n 3` | 2 checkout tests | all 3 | **6** | 3 |
+| `pytest tests/test_login.py --devices pixel` | 3 login tests | pixel | **3** | 1 |
+| `pytest "tests/test_login.py::test_valid_user_can_log_in[samsung]"` | 1 | samsung | **1** | 1 |
+
+For example, `pytest -n 6 --devices pixel,samsung` runs each of the 7 test cases once on
+a Google phone (Android 17) and once on a Samsung phone (Android 16):
+
+```
+test_valid_user_can_log_in[pixel]        test_valid_user_can_log_in[samsung]
+test_locked_out_user_sees_error[pixel]   test_locked_out_user_sees_error[samsung]
+...                                      ...                     → 14 test runs
+```
+
+**Other useful options:**
+
 ```bash
-pytest -n 6                              # everything, all devices, 6 sessions in parallel
-pytest                                   # everything, one test at a time
-pytest -n 3 -m smoke                     # only the smoke tests (login + checkout)
-pytest -n 3 --devices pixel              # only on Pixel phones
-pytest -n 6 --devices pixel,samsung      # pick devices
-pytest tests/test_checkout.py -n 3       # one file
-pytest "tests/test_login.py::test_valid_user_can_log_in[samsung]"   # one test, one device
-pytest -n 6 --reruns 1                   # retry a failed test once (real devices can be flaky)
-pytest --collect-only -q                 # list the tests without running anything
+pytest -n 6 --reruns 1             # retry a failed test once (real devices can be flaky)
+pytest -n 6 -v                     # show each test's result and which worker ran it
+pytest --collect-only -q           # list the test runs without running anything
+pytest --devices pixel,samsung --collect-only -q   # preview the 14 runs above
 ```
 
 Set `-n` to no more than your Sauce Labs **real-device concurrency**. Extra sessions
