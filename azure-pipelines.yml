@@ -1,0 +1,47 @@
+# PawKnits - Python + Appium tests on Sauce Labs real devices (EU data center)
+#
+# Setup (once): Pipelines > Library > + Variable group named "sauce-labs" with
+#   SAUCE_USERNAME     your Sauce Labs username
+#   SAUCE_ACCESS_KEY   your access key (click the lock icon to make it secret)
+
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: sauce-labs
+  - name: PARALLEL_SESSIONS
+    value: 6
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+    displayName: Use Python 3.12
+
+  - script: pip install -r requirements.txt
+    displayName: Install dependencies
+
+  - script: pytest -n $(PARALLEL_SESSIONS) --reruns 1
+    displayName: Run tests on Sauce Labs real devices
+    env:
+      # Secret variables are not exposed to scripts automatically; map them explicitly.
+      SAUCE_USERNAME: $(SAUCE_USERNAME)
+      SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: reports/junit.xml
+      testRunTitle: PawKnits Android - Sauce Labs real devices
+    displayName: Publish test results
+
+  - task: PublishPipelineArtifact@1
+    condition: failed()
+    inputs:
+      targetPath: reports/failures
+      artifact: failure-screenshots
+    displayName: Publish failure screenshots
