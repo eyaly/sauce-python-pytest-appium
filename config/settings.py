@@ -9,6 +9,13 @@ SAUCE_ACCESS_KEY = os.getenv("SAUCE_ACCESS_KEY")
 # Sauce Labs EU data center, where the PawKnits APK is uploaded.
 HUB_URL = "https://ondemand.eu-central-1.saucelabs.com/wd/hub"
 
+# Real Device Access API in the same data center, used to check device availability.
+RDC_API_URL = "https://api.eu-central-1.saucelabs.com/rdc/v2"
+
+# How long to wait for a free device before giving up, and how often to re-check (seconds).
+DEVICE_WAIT_TIMEOUT = int(os.getenv("DEVICE_WAIT_TIMEOUT", "300"))
+DEVICE_POLL_INTERVAL = int(os.getenv("DEVICE_POLL_INTERVAL", "15"))
+
 # Seconds a page object waits for an element before failing.
 DEFAULT_TIMEOUT = int(os.getenv("ELEMENT_TIMEOUT", "20"))
 

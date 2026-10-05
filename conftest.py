@@ -1,9 +1,14 @@
 """pytest wiring: device parametrization, the Sauce Labs driver fixture, and result reporting."""
 
+import base64
 import copy
+import json
 import logging
 import os
 import re
+import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -31,6 +36,63 @@ def pytest_configure(config):
     # (they inherit the environment) reports into the same Sauce Labs build.
     if not hasattr(config, "workerinput"):
         os.environ.setdefault("SAUCE_BUILD_NAME", settings.default_build_name())
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionstart(session):
+    """Before any Appium driver is created, make sure every selected device has a free phone.
+
+    Runs once in the main process (before xdist starts its workers), so a missing device
+    stops the whole run cleanly instead of failing each test.
+    """
+    config = session.config
+    if hasattr(config, "workerinput") or config.option.collectonly:
+        return
+    if not (settings.SAUCE_USERNAME and settings.SAUCE_ACCESS_KEY):
+        return  # the driver fixture reports the missing credentials
+    say = config.pluginmanager.get_plugin("terminalreporter").write_line
+    for device in _selected_devices(config):
+        _wait_for_available_device(device, CAPABILITIES[device]["appium:deviceName"], say)
+
+
+def _wait_for_available_device(device: str, device_name: str, say) -> None:
+    """Poll the Sauce Labs device status API until a device matching `device_name` is AVAILABLE.
+
+    Exits the pytest run if none frees up within settings.DEVICE_WAIT_TIMEOUT seconds.
+    """
+    deadline = time.monotonic() + settings.DEVICE_WAIT_TIMEOUT
+    while True:
+        available = _available_devices(device_name)
+        if available:
+            say(f"[{device}] available device(s) for '{device_name}': {', '.join(available[:5])}")
+            return
+        if time.monotonic() >= deadline:
+            message = (f"[{device}] no available Sauce Labs device matching '{device_name}' "
+                       f"after waiting {settings.DEVICE_WAIT_TIMEOUT}s - stopping the test run")
+            log.error(message)
+            pytest.exit(message, returncode=3)
+        say(f"[{device}] no available device for '{device_name}' yet, "
+            f"checking again in {settings.DEVICE_POLL_INTERVAL}s")
+        time.sleep(settings.DEVICE_POLL_INTERVAL)
+
+
+def _available_devices(device_name: str) -> list[str]:
+    """Descriptors of devices matching `device_name` (regex) whose state is AVAILABLE.
+
+    API: GET /rdc/v2/devices/status
+    https://docs.saucelabs.com/dev/api/real-device-access/#tag/device-catalog/GET/devices/status
+    """
+    query = urllib.parse.urlencode({"deviceName": device_name, "state": "AVAILABLE"})
+    token = base64.b64encode(f"{settings.SAUCE_USERNAME}:{settings.SAUCE_ACCESS_KEY}".encode()).decode()
+    request = urllib.request.Request(f"{settings.RDC_API_URL}/devices/status?{query}",
+                                     headers={"Authorization": f"Basic {token}"})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            devices = json.load(response).get("devices", [])
+    except OSError as exc:  # network/HTTP error: treat as "not available yet" and keep polling
+        log.warning("Device status API call failed: %s", exc)
+        return []
+    return [d["descriptor"] for d in devices if d.get("state") == "AVAILABLE"]
 
 
 def _selected_devices(config) -> list[str]:
