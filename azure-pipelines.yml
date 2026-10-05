@@ -32,17 +32,17 @@ steps:
       SAUCE_USERNAME: $(SAUCE_USERNAME)
       SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFormat: JUnit
-      testResultsFiles: reports/junit.xml
-      testRunTitle: PawKnits Android - Sauce Labs Samsung devices
-    displayName: Publish test results
+  # - task: PublishTestResults@2
+  #   condition: succeededOrFailed()
+  #   inputs:
+  #     testResultsFormat: JUnit
+  #     testResultsFiles: reports/junit.xml
+  #     testRunTitle: PawKnits Android - Sauce Labs Samsung devices
+  #   displayName: Publish test results
 
-  - task: PublishPipelineArtifact@1
-    condition: failed()
-    inputs:
-      targetPath: reports/failures
-      artifact: failure-screenshots
-    displayName: Publish failure screenshots
+  # - task: PublishPipelineArtifact@1
+  #   condition: failed()
+  #   inputs:
+  #     targetPath: reports/failures
+  #     artifact: failure-screenshots
+  #   displayName: Publish failure screenshots
