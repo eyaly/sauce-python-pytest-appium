@@ -7,7 +7,7 @@ from config.test_data import LOCKED_USER, PASSWORD, VALID_USER
 def test_valid_user_can_log_in(login_page):
     shop = login_page.login(VALID_USER, PASSWORD)
 
-    assert shop.cart_count() == 1
+    assert shop.cart_count() == 0
 
 
 def test_locked_out_user_sees_error(login_page):
