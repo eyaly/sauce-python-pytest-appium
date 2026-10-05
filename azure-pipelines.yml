@@ -8,6 +8,16 @@
 trigger:
   - main
 
+resources:
+  pipelines:
+    - pipeline: app                       # a local alias, used to refer to it in this file
+      project: pawknits-android           # the OTHER project (same organization)
+      source: eyaly.PawKnits-Android      # the app pipeline's name, exactly as shown in Azure
+      trigger:
+        branches:
+          include:
+            - main                        # only app builds from main trigger tests
+
 pool:
   vmImage: ubuntu-latest
 
