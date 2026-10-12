@@ -118,7 +118,24 @@ def pytest_runtest_makereport(item, call):
     # whether the test body passed when it tears down.
     report = yield
     setattr(item, f"rep_{report.when}", report)
+    job_url = dict(item.user_properties).get("sauce_job_url")
+    if report.failed and job_url:
+        _add_job_url_to_failure(report, job_url)
     return report
+
+
+def _add_job_url_to_failure(report, job_url):
+    """Start the failure message with the Sauce Labs job link.
+
+    The JUnit <failure message="..."> becomes the "Error message" in the Azure DevOps
+    Tests tab, so the link is one click away there (and in pytest's short summary).
+    """
+    line = f"Sauce Labs job: {job_url}"
+    crash = getattr(report.longrepr, "reprcrash", None)
+    if crash is not None:
+        crash.message = f"{line}\n{crash.message}"
+    else:
+        report.longrepr = f"{line}\n\n{report.longrepr}"
 
 
 @pytest.fixture
