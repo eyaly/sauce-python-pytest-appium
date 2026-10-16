@@ -154,7 +154,7 @@ def driver(request, device):
     })
     options = XCUITestOptions() if caps["platformName"] == "iOS" else UiAutomator2Options()
     drv = webdriver.Remote(settings.HUB_URL, options=options.load_capabilities(caps))
-    job_url = settings.dashboard_url(drv.session_id)
+    job_url = settings.dashboard_url(_sauce_job_id(drv))
     log.info("Sauce Labs job: %s", job_url)
     request.node.user_properties.append(("sauce_job_url", job_url))
 
@@ -168,6 +168,19 @@ def driver(request, device):
         drv.execute_script(f"sauce:job-result={'passed' if passed else 'failed'}")
     finally:
         drv.quit()
+
+
+def _sauce_job_id(drv) -> str:
+    """The Sauce Labs job id for this session.
+
+    On real devices (RDC) the Appium session id is NOT the job id: Sauce returns the job id
+    in the session capabilities as `appium:jobUuid`. Emulators/simulators use the session id.
+    """
+    for key in ("appium:jobUuid", "jobUuid"):
+        job_id = str(drv.capabilities.get(key) or "").strip()
+        if job_id:
+            return job_id
+    return drv.session_id
 
 
 def _save_failure_artifacts(drv, node):
