@@ -26,8 +26,11 @@ class ShopPage(BasePage):
         return self.text_of(by_tag(tag))
 
     def cart_count(self) -> int:
-        """The badge is only rendered when the cart has items."""
-        badges = self.driver.find_elements(*self.CART_BADGE)
+        if self.ios:
+            # iOS merges the badge into the cart button, which exposes the count as its value.
+            return int(self.find(self.CART_BUTTON).get_attribute("value") or 0)
+        # Android: the badge is only rendered when the cart has items.
+        badges = self.find_all(self.CART_BADGE)
         return int(badges[0].text) if badges else 0
 
     def wait_for_cart_count(self, expected: int, timeout: int = 5) -> bool:

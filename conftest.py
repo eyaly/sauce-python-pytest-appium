@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
+from appium.options.ios import XCUITestOptions
 
 from config import settings
 from config.capabilities import CAPABILITIES
@@ -140,7 +141,7 @@ def _add_job_url_to_failure(report, job_url):
 
 @pytest.fixture
 def driver(request, device):
-    """A fresh Appium session on a Sauce Labs real device, closed after the test."""
+    """A fresh Appium session on a Sauce Labs real device (Android or iOS), closed after the test."""
     if not (settings.SAUCE_USERNAME and settings.SAUCE_ACCESS_KEY):
         pytest.fail("Set SAUCE_USERNAME and SAUCE_ACCESS_KEY environment variables")
 
@@ -151,7 +152,8 @@ def driver(request, device):
         "build": settings.build_name(),
         "name": request.node.originalname,  # e.g. test_valid_user_can_log_in
     })
-    drv = webdriver.Remote(settings.HUB_URL, options=UiAutomator2Options().load_capabilities(caps))
+    options = XCUITestOptions() if caps["platformName"] == "iOS" else UiAutomator2Options()
+    drv = webdriver.Remote(settings.HUB_URL, options=options.load_capabilities(caps))
     job_url = settings.dashboard_url(drv.session_id)
     log.info("Sauce Labs job: %s", job_url)
     request.node.user_properties.append(("sauce_job_url", job_url))

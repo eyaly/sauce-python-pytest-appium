@@ -1,7 +1,7 @@
 # PawKnits: Python + Appium on Sauce Labs Real Devices
 
-A demo test framework that runs **Python + Appium** tests for the PawKnits Android app
-on **Sauce Labs real devices**, in parallel across several phones, using **pytest** and
+A demo test framework that runs **Python + Appium** tests for the PawKnits **Android and iOS**
+apps on **Sauce Labs real devices**, in parallel across several phones, using **pytest** and
 the **Page Object** pattern. It is built to run locally and in **Azure DevOps**.
 
 ```
@@ -24,7 +24,7 @@ the **Page Object** pattern. It is built to run locally and in **Azure DevOps**.
 ├──────────────────────────────────────────────────┤
 │ Appium server on Sauce Labs (EU data center)     │  hosted by Sauce
 ├──────────────────────────────────────────────────┤
-│ Real Android phones (Pixel, Samsung, ...)        │
+│ Real Android phones and iPhones                  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -41,14 +41,19 @@ the **Page Object** pattern. It is built to run locally and in **Azure DevOps**.
 
 ## The app under test
 
-**PawKnits**, a dog-sweater shop (Kotlin + Jetpack Compose).
+**PawKnits**, a dog-sweater shop, built twice: Android (Kotlin + Jetpack Compose) and
+iOS (Swift + SwiftUI). Both have the same screens, demo data and **element ids**, so the
+same tests and page objects run on both.
 Flow: **Login → Shop → Cart → Checkout → Order confirmation**.
+
+| | Android | iOS |
+|---|---|---|
+| App in this repo | `Apps/PawKnits.apk` | `Apps/PawKnits.ipa` |
+| Sauce storage file (**EU** data center) | `PawKnits.apk` | `PawKnits.ipa` |
+| Package / bundle id | `com.pawknits.demo` | `com.pawknits.demo` |
 
 | | |
 |---|---|
-| APK in this repo | `Apps/PawKnits.apk` |
-| Sauce storage file | `PawKnits.apk` (in the **EU** data center) |
-| Package | `com.pawknits.demo` |
 | Valid user | `doglover` / `woof1234` |
 | Locked user | `locked` / `woof1234` |
 | Approved card | `4242 4242 4242 4242` (prefilled) |
@@ -63,7 +68,8 @@ through this capability in `config/capabilities.py`:
 "appium:app": "storage:filename=PawKnits.apk",
 ```
 
-So the APK must be in storage **before** you run the tests. You only need to upload it
+(`storage:filename=PawKnits.ipa` for iOS devices.) So the app must be in storage **before**
+you run the tests. You only need to upload it
 again when the app changes.
 
 **Upload with the Sauce Labs REST API.** Use the **EU** endpoint, because app storage is
@@ -74,6 +80,12 @@ curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" -X POST \
   "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
   -F "payload=@Apps/PawKnits.apk" \
   -F "name=PawKnits.apk"
+
+# iOS: same command with the IPA. Sauce Labs re-signs it, so an unsigned IPA is fine.
+curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" -X POST \
+  "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
+  -F "payload=@Apps/PawKnits.ipa" \
+  -F "name=PawKnits.ipa"
 ```
 
 | Part | Meaning |
@@ -107,7 +119,8 @@ sauce-python-pytest-appium/
 ├── pytest.ini               # pytest settings (JUnit report, markers)
 ├── requirements.txt
 ├── Apps/
-│   └── PawKnits.apk         # the app under test (upload it to Sauce storage, see above)
+│   ├── PawKnits.apk         # the Android app (upload it to Sauce storage, see above)
+│   └── PawKnits.ipa         # the iOS app
 ├── config/
 │   ├── settings.py          # credentials, Sauce EU URL, build name
 │   ├── capabilities.py      # hardcoded Appium capabilities per device  ← edit to change devices
@@ -194,13 +207,13 @@ Labs session, on its own phone.
 test runs = test cases × devices
 ```
 
-The suite has **7 test cases** (3 login, 2 cart, 2 checkout) and **3 devices**
-(`pixel`, `samsung`, `android-14`). Three options control a run:
+The suite has **7 test cases** (3 login, 2 cart, 2 checkout) and **5 devices**
+(Android: `pixel`, `samsung`, `android-14`; iOS: `iphone`, `iphone-18`). Three options control a run:
 
 | Option | Controls | Default |
 |---|---|---|
 | file path / `-m` / `::test_name` | **which test cases** | all 7 |
-| `--devices` | **which devices** each test case runs on | all 3 |
+| `--devices` | **which devices** each test case runs on | all 5 |
 | `-n` | **how many run at the same time** (parallel sessions) | 1, one after another |
 
 `-n` doesn't change *what* runs, only how fast. 14 test runs with `-n 6` means 6 run at
@@ -210,12 +223,14 @@ once, and the next one starts whenever one finishes.
 
 | Command | Test cases | Devices | Test runs | At once |
 |---|---|---|---|---|
-| `pytest -n 6` | all 7 | all 3 | **21** | 6 |
-| `pytest` | all 7 | all 3 | **21** | 1 |
+| `pytest -n 6` | all 7 | all 5 | **35** | 6 |
+| `pytest` | all 7 | all 5 | **35** | 1 |
+| `pytest -n 7 --devices iphone` | all 7 | iphone | **7** | 7 |
+| `pytest -n 14 --devices samsung,iphone` | all 7 | samsung, iphone | **14** | 14 |
 | `pytest -n 6 --devices pixel,samsung` | all 7 | pixel, samsung | **14** | 6 |
 | `pytest -n 3 --devices pixel` | all 7 | pixel | **7** | 3 |
-| `pytest -n 3 -m smoke` | 2 smoke tests | all 3 | **6** | 3 |
-| `pytest tests/test_checkout.py -n 3` | 2 checkout tests | all 3 | **6** | 3 |
+| `pytest -n 3 -m smoke` | 2 smoke tests | all 5 | **10** | 3 |
+| `pytest tests/test_checkout.py -n 3` | 2 checkout tests | all 5 | **10** | 3 |
 | `pytest tests/test_login.py --devices pixel` | 3 login tests | pixel | **3** | 1 |
 | `pytest "tests/test_login.py::test_valid_user_can_log_in[samsung]"` | 1 | samsung | **1** | 1 |
 
@@ -268,6 +283,12 @@ Device ids are the keys in `config/capabilities.py`:
 | `pixel` | `Google.*` | `17` | any Google phone with Android 17 |
 | `samsung` | `Samsung.*` | `16` | any Samsung phone with Android 16 |
 | `android-14` | `.*` | `14` | any phone with Android 14 |
+| `iphone` | `iPhone.*` | `26` | any iPhone with iOS 26 |
+| `iphone-18` | `iPhone.*` | `18` | any iPhone with iOS 18 |
+
+iOS entries use `"platformName": "iOS"`, `"appium:automationName": "XCUITest"` and
+`"appium:app": "storage:filename=PawKnits.ipa"`. The `driver` fixture picks
+`XCUITestOptions` or `UiAutomator2Options` from `platformName`.
 
 ### The capabilities
 
@@ -541,8 +562,18 @@ the user's path through the app.
 
 ### 5. Locators
 
-The app's Compose `testTag`s are exposed as Android resource-ids (`testTagsAsResourceId`).
-`by_tag("login_button")` in `base_page.py` turns a tag into a locator.
+Both apps give each element the same id: a Compose `testTag` on Android (exposed as a
+resource-id via `testTagsAsResourceId`) and an `accessibilityIdentifier` on iOS.
+Page objects use `by_tag("login_button")`, and `BasePage.locator()` turns it into the
+real locator for the session's platform:
+
+| Platform | `by_tag("login_button")` becomes |
+|---|---|
+| Android | `AppiumBy.ANDROID_UIAUTOMATOR`, `new UiSelector().resourceId("login_button")` |
+| iOS | `AppiumBy.ACCESSIBILITY_ID`, `login_button` |
+
+The few actions that differ per platform (`type`, `hide_keyboard`, `scroll_to`, and
+`ShopPage.cart_count`) check `self.ios`, so tests never need to know the platform.
 
 ---
 
@@ -602,6 +633,8 @@ What you get without extra configuration:
 | `UiScrollable.scrollIntoView` doesn't find list items | It's unreliable with Compose lazy lists. `BasePage.scroll_to()` swipes with `mobile: scrollGesture` and checks after each swipe |
 | A product works on one phone and fails on another | Screen and font size change the layout (some phones show 1 column instead of 2). Always `scroll_to()` before tapping |
 | Tests wait in queue | `-n` is higher than your real-device concurrency |
+| iOS: the next field can't be tapped | The keyboard's "Done" toolbar covers the field below. `BasePage.type()` taps `keyboard_done` after each field |
+| iOS: `cart_badge` isn't found | iOS merges the badge into the cart button. Read the count from `cart_button`'s `value` (`ShopPage.cart_count`) |
 
 To inspect the live UI tree, use [Appium Inspector](https://github.com/appium/appium-inspector)
 with the same capabilities, or open `reports/failures/*.xml` after a failed run.
