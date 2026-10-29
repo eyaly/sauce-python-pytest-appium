@@ -7,7 +7,7 @@ from config.test_data import DECLINED_CARD, GREY_BLANKET, ORANGE_SWEATER, XMAS_S
 
 @pytest.mark.smoke
 def test_successful_checkout(shop_page):
-    expected_total = ORANGE_SWEATER.price + XMAS_SWEATER.price
+    expected_total = ORANGE_SWEATER.price + XMAS_SWEATER.price + 1 #added the +1 so the test failed
 
     cart = shop_page.add_to_cart(ORANGE_SWEATER.id).add_to_cart(XMAS_SWEATER.id).open_cart()
     checkout = cart.checkout()
